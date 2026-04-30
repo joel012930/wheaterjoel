@@ -1,76 +1,95 @@
 import { useState, useEffect } from 'react';
 import { Pronostico } from '../tipos/clima';
 
-// 🚨 RECORDATORIO: Poné tu API_KEY real aquí
-const API_KEY = '73a9321f9b334be1962190623262304'; 
+// 🚨 IMPORTANTE: Leemos la clave desde el archivo .env (¡Nada de jest.mock acá!)
+const API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY;
 const CIUDAD = 'Buenos Aires';
 
 const usePronosticoClima = () => {
   const [datosClima, setDatosClima] = useState<Pronostico[]>([]);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(1); 
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    const obtenerClima = async () => {
+    const obtenerDatosCronologicos = async () => {
       try {
-        const res = await fetch(`https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${CIUDAD}&days=3&aqi=no`);
-        const data = await res.json();
+        console.log("1. Iniciando carga de datos...");
 
-        if (data.error) {
-          console.error("Error de API:", data.error.message);
-          setCargando(false);
-          return;
+        // Ajustamos la forma de calcular la fecha para evitar problemas de zona horaria
+        const fechaHoy = new Date();
+        const fechaAyer = new Date();
+        fechaAyer.setDate(fechaHoy.getDate() - 1);
+        
+        // Extraemos AAAA-MM-DD de forma segura
+        const ayerString = fechaAyer.toISOString().split('T')[0];
+        console.log("2. Fecha de ayer calculada:", ayerString);
+
+        // Armamos las URLs
+        const urlAyer = `https://api.weatherapi.com/v1/history.json?key=${API_KEY}&q=${CIUDAD}&dt=${ayerString}`;
+        const urlFuturo = `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${CIUDAD}&days=2`;
+        
+        console.log("3. Haciendo fetch a las APIs...");
+
+        const [resAyer, resFuturo] = await Promise.all([
+          fetch(urlAyer),
+          fetch(urlFuturo)
+        ]);
+
+        console.log("4. Respuestas recibidas. Analizando JSON...");
+
+        const dataAyer = await resAyer.json();
+        const dataFuturo = await resFuturo.json();
+
+        // 🛡️ ESCUDO: Verificamos si la API mandó un error adentro del JSON
+        if (dataAyer.error) {
+           console.error("Error en API (Ayer):", dataAyer.error.message);
+           setCargando(false);
+           return;
+        }
+        if (dataFuturo.error) {
+           console.error("Error en API (Futuro):", dataFuturo.error.message);
+           setCargando(false);
+           return;
         }
 
-        const formateados = data.forecast.forecastday.map((dia: any, i: number) => ({
+        console.log("5. Datos extraídos correctamente. Formateando...");
+
+        const diasCombinados = [
+          dataAyer.forecast.forecastday[0],
+          dataFuturo.forecast.forecastday[0],
+          dataFuturo.forecast.forecastday[1]
+        ];
+
+        const formateados: Pronostico[] = diasCombinados.map((dia, i) => ({
           id: String(i),
-          // Si es el primer día ponemos "NOW", si no la fecha cortita
-          fecha: i === 0 ? "NOW" : dia.date.slice(5).replace('-', '/'),
-          ciudad: data.location.name,
+          fecha: dia.date.slice(5).replace('-', '/'), 
+          ciudad: dataFuturo.location.name,
           condicion: dia.day.condition.text.toLowerCase(),
-          tempActual: i === 0 ? Math.round(data.current.temp_c) : Math.round(dia.day.maxtemp_c),
+          tempActual: i === 1 ? Math.round(dataFuturo.current.temp_c) : Math.round(dia.day.avgtemp_c),
           tempMin: Math.round(dia.day.mintemp_c),
           tempMax: Math.round(dia.day.maxtemp_c),
-          humedad: i === 0 ? data.current.humidity : dia.day.avghumidity,
-          presion: i === 0 ? data.current.pressure_mb : 1013,
-          viento: i === 0 ? Number((data.current.wind_kph / 3.6).toFixed(1)) : Number((dia.day.maxwind_kph / 3.6).toFixed(1))
+          humedad: i === 1 ? dataFuturo.current.humidity : dia.day.avghumidity,
+          presion: i === 1 ? dataFuturo.current.pressure_mb : 1013,
+          viento: i === 1 ? Number((dataFuturo.current.wind_kph / 3.6).toFixed(1)) : Number((dia.day.maxwind_kph / 3.6).toFixed(1))
         }));
 
         setDatosClima(formateados);
         setCargando(false);
+        console.log("6. Carga finalizada con éxito.");
+
       } catch (e) {
-        console.error("Error de red:", e);
-        setCargando(false);
+        console.error("❌ Error CRÍTICO en la cronología:", e);
+        setCargando(false); // Esto asegura que, si hay error, deje de girar la ruedita
       }
     };
-    obtenerClima();
+
+    obtenerDatosCronologicos();
   }, []);
 
-  // LÓGICA DE NAVEGACIÓN CORREGIDA
-  const irSiguiente = () => {
-    setIndex((prevIndex) => {
-      if (prevIndex < datosClima.length - 1) {
-        return prevIndex + 1; // Avanza exactamente uno
-      }
-      return prevIndex; // Si es el último, no hace nada
-    });
-  };
+  const irSiguiente = () => index < 2 && setIndex(index + 1);
+  const irAnterior = () => index > 0 && setIndex(index - 1);
 
-  const irAnterior = () => {
-    setIndex((prevIndex) => {
-      if (prevIndex > 0) {
-        return prevIndex - 1; // Retrocede exactamente uno
-      }
-      return prevIndex; // Si es el primero, no hace nada
-    });
-  };
-
-  return { 
-    climaActual: datosClima.length > 0 ? datosClima[index] : null, 
-    cargando, 
-    irSiguiente, 
-    irAnterior 
-  };
+  return { climaActual: datosClima[index], cargando, irSiguiente, irAnterior };
 };
 
 export default usePronosticoClima;
