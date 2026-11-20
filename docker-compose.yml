@@ -1,0 +1,22 @@
+services:
+  weather-app:
+    build: .
+    container_name: weather-app-p4
+    restart: always
+    ports:
+      - "8040:80"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-p4
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_p4_data:/var/lib/grafana
+    ports:
+      - "3040:3000"
+
+volumes:
+  grafana_p4_data:
