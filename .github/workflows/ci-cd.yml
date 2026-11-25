@@ -42,3 +42,14 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: self-hosted
+    steps:
+      - name: Desplegar nueva imagen en la VM
+        run: |
+          cd /opt/Proyecto4
+          docker compose pull
+          docker compose up -d
+          docker image prune -f
