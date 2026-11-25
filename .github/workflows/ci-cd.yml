@@ -51,5 +51,6 @@ jobs:
         run: |
           cd /opt/Proyecto4
           docker compose pull
-          docker compose up -d
+          docker rm -f cadvisor-p4 prometheus-p4 node-exporter-p4 grafana-p4 weather-app-p4 2>/dev/null || true
+          docker compose up -d --remove-orphans
           docker image prune -f
