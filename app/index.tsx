@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import usePronosticoClima from './hooks/usePronosticoClima';
-import DatosAdicionalesDelClima from './componentes/contenidos/DatosAdicionalesDelClima';
+import usePronosticoClima from '../hooks/usePronosticoClima';
+import DatosAdicionalesDelClima from '../componentes/contenidos/DatosAdicionalesDelClima';
 
 export default function WeatherScreen() {
   const { climaActual, cargando, irSiguiente, irAnterior } = usePronosticoClima();
